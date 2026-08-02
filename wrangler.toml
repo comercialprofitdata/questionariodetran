@@ -6,4 +6,4 @@ pages_build_output_dir = "./public"
 [[d1_databases]]
 binding = "DB"
 database_name = "leiseca_db"
-database_id = "CHANGE_ME_AFTER_CREATING_DATABASE" # Será atualizado quando o banco for criado
+database_id = "535bf5f0-1ff0-41c0-af57-c32aedbf0615" # ID do banco de dados D1 leiseca_db
