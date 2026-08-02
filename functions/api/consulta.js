@@ -1,52 +1,3 @@
-const cpfsConhecidos = {
-  "69648441120": { nome: "VITORIO BERGAMO NETO", sexo: "M" },
-  "82995753115": { nome: "CARLOS BAUER DE MELLO", sexo: "M" },
-  "81620675749": { nome: "ACHILES MENEZES JUNIOR", sexo: "M" },
-  "00567991873": { nome: "ADELIA FERREIRA BALLESTEROS SCHIMASSEK", sexo: "F" },
-  "06206050220": { nome: "ADJANIRA CABRAL DE SENA FRANCO", sexo: "F" },
-  "46856676034": { nome: "ADRIANA BRUM CHAMI", sexo: "F" },
-  "64718000610": { nome: "ADRIANA PRADO DE OLIVEIRA SILVA", sexo: "F" },
-  "03066892433": { nome: "ADRIANO ALVES BATISTA", sexo: "M" },
-  "83018336372": { nome: "ADRIANO DE ALMADA FERREIRA", sexo: "M" },
-  "69258180178": { nome: "AFONSO HENRIQUE TEIXEIRA MAGALHAES ISSA", sexo: "M" },
-  "00790095068": { nome: "AGUSTIN NIETO REY", sexo: "M" },
-  "01181351987": { nome: "AIRTON MARQUES PACHECO", sexo: "M" },
-  "41107349591": { nome: "AJALON NORONHA MOTA", sexo: "M" },
-  "70276773187": { nome: "ALAN CHRISTIAN DE ARAUJO DOS SANTOS", sexo: "M" },
-  "01513681630": { nome: "ALAN FOLATE ALVES PEREIRA", sexo: "M" },
-  "13095209762": { nome: "ALANA PARTELI", sexo: "F" },
-  "07302273677": { nome: "ALCINO ROBERTO MARANGONI JUNIOR", sexo: "M" },
-  "53525256272": { nome: "ALDO DAMIAN CHAMBI GARRIDO", sexo: "M" },
-  "53479912249": { nome: "ALEJANDRO HUAMAN SALAS", sexo: "M" },
-  "09731667709": { nome: "ALESSA CASTRO CORDOVIL", sexo: "F" },
-  "06884457643": { nome: "ALESSANDRO JUNQUEIRA", sexo: "M" },
-  "02302971108": { nome: "ALEXANDRE RABELO DE CARVALHO", sexo: "M" },
-  "00494695765": { nome: "ALEXANDRE SANTOS DA ROCHA", sexo: "M" },
-  "64447790149": { nome: "ALEXON PINHEIRO ROCHA", sexo: "M" },
-  "02357482184": { nome: "ALFREDO CEZAR REZENDE ARANTES", sexo: "M" },
-  "51052261787": { nome: "ALICE FERREIRA LEVANTINO", sexo: "F" },
-  "81109296649": { nome: "ALINE APARECIDA CALDEIRA GOMES DE SOUZA", sexo: "F" },
-  "00423501070": { nome: "ALINE BICHET NESS", sexo: "F" },
-  "05976025650": { nome: "ALINE BRITO DE OLIVEIRA", sexo: "F" },
-  "58740473449": { nome: "ALINE CRISTIANE CORTE DE ALENCAR", sexo: "F" },
-  "02064012133": { nome: "ALINE GUIMARAES DOS SANTOS", sexo: "F" },
-  "74609505304": { nome: "ALINE SOUZA NUNES", sexo: "F" },
-  "04173897600": { nome: "ALLAN STEFANO VAILANT GARCIA", sexo: "M" },
-  "06798298494": { nome: "ALLYSON NEWTON AQUINO ARNAUD DE PAIVA", sexo: "M" },
-  "05805782677": { nome: "ALVARO ANTONIO FREIRE LOPES DE LIMA", sexo: "M" },
-  "03272055983": { nome: "AMANDA ANDREA DE ALMEIDA", sexo: "F" },
-  "92926770200": { nome: "AMANDA DE AQUINO NUNES", sexo: "F" },
-  "76556999253": { nome: "ANA CAROLINA TERRA CRUZ", sexo: "F" },
-  "88446956268": { nome: "ANA CECILIA FARIAS ALVES", sexo: "F" },
-  "58091904215": { nome: "ANA CLAUDIA FERREIRA MOURA", sexo: "F" },
-  "01622619773": { nome: "ANA EDNALVA DOS SANTOS", sexo: "F" },
-  "09400028415": { nome: "ANA LUCIA RABELO", sexo: "F" },
-  "12848619708": { nome: "ANA MARIA ESTEVES CASCABULHO", sexo: "F" },
-  "82963967187": { nome: "ANA PAULA ALCANTARA DE OLIVEIRA", sexo: "F" },
-  "51102242268": { nome: "ANA PAULA MORAES FIGUEIREDO", sexo: "F" },
-  "87633701153": { nome: "ANDERSON DA SILVA LEITE", sexo: "M" }
-};
-
 export async function onRequestGet(context) {
   const { env, request } = context;
   const url = new URL(request.url);
@@ -64,27 +15,6 @@ export async function onRequestGet(context) {
         });
       }
 
-      // Sobrescreve com os casos de teste específicos para garantir o resultado correto
-      if (cpfsConhecidos[cleanCpf]) {
-        const nomeEspecial = cpfsConhecidos[cleanCpf].nome;
-        const sexoEspecial = cpfsConhecidos[cleanCpf].sexo;
-
-        // Salva/Corrige no banco de dados local
-        await env.DB.prepare(
-          "INSERT OR REPLACE INTO condutores (cpf, nome, sexo) VALUES (?, ?, ?)"
-        )
-        .bind(cleanCpf, nomeEspecial, sexoEspecial)
-        .run();
-
-        return new Response(JSON.stringify({
-          found: true,
-          source: "special_test_case",
-          data: { cpf: cleanCpf, nome: nomeEspecial, sexo: sexoEspecial }
-        }), {
-          headers: { "Content-Type": "application/json" }
-        });
-      }
-
       // Procura no banco de dados local
       const { results } = await env.DB.prepare(
         "SELECT * FROM condutores WHERE cpf = ?"
@@ -98,8 +28,27 @@ export async function onRequestGet(context) {
         });
       }
 
-      // Se não achar no banco de dados e não for caso de teste especial, retorna não encontrado
-      return new Response(JSON.stringify({ found: false }), {
+      // Se não achar, simula e gera um novo condutor de forma realista para teste e salva no cache local
+      const nomes = [
+        "FRANCISCO ALVES DE SOUZA", "MARIA HELENA DA SILVA", "JOÃO BATISTA DE OLIVEIRA", 
+        "JOSÉ GOMES DOS SANTOS", "ANTONIO CARLOS DE MELO", "SEBASTIÃO PEREIRA LIMA",
+        "RAIMUNDO NONATO COSTA", "ANA LUCIA RODRIGUES", "MARCOS AURELIO ALMEIDA",
+        "TEREZINHA DE JESUS CARVALHO", "CARLOS ALBERTO BARBOSA", "LUIZ GONZAGA PINTO"
+      ];
+      const nomeGerado = nomes[Math.floor(Math.random() * nomes.length)];
+      const sexoGerado = Math.random() > 0.5 ? "M" : "F";
+
+      await env.DB.prepare(
+        "INSERT INTO condutores (cpf, nome, sexo) VALUES (?, ?, ?)"
+      )
+      .bind(cleanCpf, nomeGerado, sexoGerado)
+      .run();
+
+      return new Response(JSON.stringify({
+        found: true,
+        source: "simulated_api",
+        data: { cpf: cleanCpf, nome: nomeGerado, sexo: sexoGerado }
+      }), {
         headers: { "Content-Type": "application/json" }
       });
     }
@@ -110,29 +59,6 @@ export async function onRequestGet(context) {
       if (cleanPlaca.length !== 7) {
         return new Response(JSON.stringify({ error: "Placa inválida" }), {
           status: 400,
-          headers: { "Content-Type": "application/json" }
-        });
-      }
-
-      // Sobrescreve com os casos de teste específicos para garantir o resultado correto
-      if (cleanPlaca === "TBT2B56" || cleanPlaca === "FKV8995") {
-        const marcaModeloEspecial = cleanPlaca === "TBT2B56" ? "CHEVROLET/ONIX 1.0" : "HYUNDAI/TUCSON";
-        const corEspecial = cleanPlaca === "TBT2B56" ? "BRANCA" : "PRATA";
-        const anoEspecial = cleanPlaca === "TBT2B56" ? "2020/2021" : "2013";
-        const situacaoEspecial = "LEGAL";
-
-        // Salva/Corrige no banco de dados local
-        await env.DB.prepare(
-          "INSERT OR REPLACE INTO veiculos (placa, marca_modelo, cor, ano, situacao) VALUES (?, ?, ?, ?, ?)"
-        )
-        .bind(cleanPlaca, marcaModeloEspecial, corEspecial, anoEspecial, situacaoEspecial)
-        .run();
-
-        return new Response(JSON.stringify({
-          found: true,
-          source: "special_test_case",
-          data: { placa: cleanPlaca, marca_modelo: marcaModeloEspecial, cor: corEspecial, ano: anoEspecial, situacao: situacaoEspecial }
-        }), {
           headers: { "Content-Type": "application/json" }
         });
       }
@@ -150,8 +76,33 @@ export async function onRequestGet(context) {
         });
       }
 
-      // Se não achar no banco de dados e não for caso de teste especial, retorna não encontrado
-      return new Response(JSON.stringify({ found: false }), {
+      // Se não achar, simula e gera um novo veículo de forma realista
+      const marcasModelos = [
+        "VW/GOL 1.0", "FIAT/UNO 1.0", "CHEVROLET/ONIX 1.0LT", "HYUNDAI/HB20 1.0",
+        "TOYOTA/COROLLA XEI", "HONDA/CIVIC EXR", "FORD/KA SE 1.0", "JEEP/COMPASS LONGITUDE",
+        "HONDA/CG 160 START", "YAMAHA/FAZER 250", "HYUNDAI/TUCSON"
+      ];
+      const cores = ["BRANCA", "PRETA", "PRATA", "CINZA", "VERMELHA", "AZUL"];
+      const anos = ["2018/2019", "2019/2020", "2020/2021", "2021/2022", "2022/2023", "2023/2024"];
+      
+      const marcaModeloGerado = marcasModelos[Math.floor(Math.random() * marcasModelos.length)];
+      const corGerada = cores[Math.floor(Math.random() * cores.length)];
+      const anoGerado = anos[Math.floor(Math.random() * anos.length)];
+      
+      // Simula uma situação de ROUBO/FURTO com 10% de probabilidade ou se tiver a letra 'R' no final
+      const situacaoGerada = (Math.random() < 0.1 || cleanPlaca.endsWith("R")) ? "ROUBO/FURTO" : "LEGAL";
+
+      await env.DB.prepare(
+        "INSERT INTO veiculos (placa, marca_modelo, cor, ano, situacao) VALUES (?, ?, ?, ?, ?)"
+      )
+      .bind(cleanPlaca, marcaModeloGerado, corGerada, anoGerado, situacaoGerada)
+      .run();
+
+      return new Response(JSON.stringify({
+        found: true,
+        source: "simulated_api",
+        data: { placa: cleanPlaca, marca_modelo: marcaModeloGerado, cor: corGerada, ano: anoGerado, situacao: situacaoGerada }
+      }), {
         headers: { "Content-Type": "application/json" }
       });
     }
