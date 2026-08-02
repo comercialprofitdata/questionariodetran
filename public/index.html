@@ -61,8 +61,18 @@
         .option-card input:checked + div .icon-check { opacity: 1; transform: scale(1); }
         
         /* Checkboxes (Infrações) customizados */
-        .custom-checkbox input:checked + div { background-color: #0369a1; border-color: #0369a1; }
-        .custom-checkbox input:checked + div svg { display: block; }
+        .custom-checkbox input:checked + div {
+            border-color: #0ea5e9;
+            background-color: #f0f9ff;
+            box-shadow: 0 0 0 1px #0ea5e9;
+        }
+        .custom-checkbox input:checked + div .w-5 {
+            background-color: #0ea5e9;
+            border-color: #0ea5e9;
+        }
+        .custom-checkbox input:checked + div .w-5 i {
+            opacity: 1;
+        }
 
         /* Paddings para não sobrepor botões fixos */
         .pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 90px); } 
@@ -509,7 +519,7 @@
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm mb-6 overflow-hidden">
                 <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <h3 class="font-bold text-slate-800 text-sm"><i class="fa-solid fa-users-gear text-slate-400 mr-2"></i> Base de Agentes Cadastrados</h3>
-                    <button onclick="cadastrarAgenteAdmin()" class="text-brand-600 text-xs font-bold bg-brand-50 px-3 py-1.5 rounded-lg border border-brand-100"><i class="fa-solid fa-plus"></i> Novo</button>
+                    <button onclick="abrirModalNovoAgente('admin')" class="text-brand-600 text-xs font-bold bg-brand-50 px-3 py-1.5 rounded-lg border border-brand-100"><i class="fa-solid fa-plus"></i> Novo</button>
                 </div>
                 <div class="p-4 flex flex-col gap-3" id="lista-agentes-cadastrados">
                     <!-- Injetado dinamicamente -->
@@ -605,15 +615,50 @@
                         <i class="fa-solid fa-search absolute left-3 top-3.5 text-slate-400"></i>
                         <input type="text" id="inputFiltroAgente" onkeyup="filtrarListaAgentes()" placeholder="Digite nome, graduação ou matrícula..." class="w-full pl-10 p-3 bg-white border border-slate-300 rounded-xl text-sm outline-none focus:border-brand-500 shadow-sm" autofocus>
                     </div>
-                    <button type="button" id="btnAdicionarManual" onclick="adicionarAgenteManual()" class="hidden bg-brand-600 text-white px-4 rounded-xl text-sm font-bold shadow-sm whitespace-nowrap active:bg-brand-700">
+                    <button type="button" id="btnAdicionarManual" onclick="abrirModalNovoAgente('wizard')" class="hidden bg-brand-600 text-white px-4 rounded-xl text-sm font-bold shadow-sm whitespace-nowrap active:bg-brand-700">
                         Cadastrar novo
                     </button>
                 </div>
-                <p id="msg-busca-livre" class="text-xs text-slate-500 mt-2 hidden"><i class="fa-solid fa-circle-info mr-1"></i>Agente não encontrado? Digite o nome e matrícula e clique em "Cadastrar novo".</p>
+                <p id="msg-busca-livre" class="text-xs text-slate-500 mt-2 hidden"><i class="fa-solid fa-circle-info mr-1"></i>Agente não encontrado? Digite o nome e clique em "Cadastrar novo".</p>
             </div>
             <div class="flex-1 overflow-y-auto p-2" id="listaResultadosAgente">
                 <!-- Preenchido via JS -->
             </div>
+        </div>
+    </div>
+
+    <!-- MODAL CADASTRAR NOVO AGENTE -->
+    <div id="modalNovoAgente" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div class="absolute inset-0 modal-overlay" onclick="fecharModalNovoAgente()"></div>
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 z-10 shadow-2xl relative animate-[slideIn_0.2s_ease-out]">
+            <button onclick="fecharModalNovoAgente()" class="absolute top-4 right-4 w-8 h-8 bg-slate-100 rounded-full text-slate-500 font-bold"><i class="fa-solid fa-xmark"></i></button>
+            
+            <div class="text-center mb-6 mt-2">
+                <div class="w-14 h-14 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center text-xl mx-auto mb-3"><i class="fa-solid fa-user-plus"></i></div>
+                <h3 class="font-black text-xl text-slate-800" id="tituloModalNovoAgente">Cadastrar Novo Agente</h3>
+                <p class="text-sm text-slate-500">Adicionar efetivo para a operação.</p>
+            </div>
+            
+            <form onsubmit="salvarNovoAgente(event)" class="space-y-4" id="formNovoAgente">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Nome Completo</label>
+                    <input type="text" id="novoAgenteNome" placeholder="Ex: SD GOMES" class="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:border-brand-500 text-sm uppercase" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Matrícula</label>
+                    <input type="text" id="novoAgenteMatricula" placeholder="Ex: 123456" class="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:border-brand-500 text-sm" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Tipo de Agente</label>
+                    <select id="novoAgenteTipo" class="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:border-brand-500 text-sm" required>
+                        <option value="policial">Policial Militar / Civil</option>
+                        <option value="detran">Agente DETRAN-MT</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-brand-600 text-white font-bold py-3.5 rounded-xl shadow-md active:bg-brand-700 transition-colors mt-2 text-sm">
+                    Salvar Agente
+                </button>
+            </form>
         </div>
     </div>
 
@@ -934,36 +979,65 @@
             renderizarListaAgentes(filtrados);
         }
 
-        async function adicionarAgenteManual() {
-            const termo = document.getElementById('inputFiltroAgente').value.trim().toUpperCase();
-            if (termo.length < 3) {
-                alert('Digite pelo menos 3 caracteres.');
-                return;
-            }
-            const matricula = prompt("Digite a matrícula do agente (ou deixe em branco):") || "SEM MATRÍCULA";
+        let creationSource = 'admin';
 
-            const payload = {
-                nome: termo,
-                matricula: matricula,
-                tipo: tipoBuscaAtual,
-                aprovado: 0 // Inserido na rua, requer aprovação do administrador
-            };
+        function abrirModalNovoAgente(source) {
+            creationSource = source;
+            document.getElementById('modalNovoAgente').classList.remove('hidden');
+            
+            const form = document.getElementById("formNovoAgente");
+            form.reset();
+
+            if (source === 'wizard') {
+                document.getElementById('tituloModalNovoAgente').innerText = "Cadastrar Agente (Rua)";
+                const searchVal = document.getElementById("inputFiltroAgente").value.trim().toUpperCase();
+                document.getElementById("novoAgenteNome").value = searchVal;
+                
+                const tipoSelect = document.getElementById("novoAgenteTipo");
+                tipoSelect.value = tipoBuscaAtual;
+                tipoSelect.disabled = true;
+            } else {
+                document.getElementById('tituloModalNovoAgente').innerText = "Cadastrar Novo Agente";
+                const tipoSelect = document.getElementById("novoAgenteTipo");
+                tipoSelect.disabled = false;
+            }
+        }
+
+        function fecharModalNovoAgente() {
+            document.getElementById('modalNovoAgente').classList.add('hidden');
+        }
+
+        async function salvarNovoAgente(e) {
+            e.preventDefault();
+            
+            const nome = document.getElementById("novoAgenteNome").value.trim().toUpperCase();
+            const matricula = document.getElementById("novoAgenteMatricula").value.trim();
+            const tipo = document.getElementById("novoAgenteTipo").value;
+            const aprovado = creationSource === 'wizard' ? 0 : 1;
 
             try {
                 const res = await fetch("/api/agentes", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ nome, matricula, tipo, aprovado })
                 });
                 
                 if (res.ok) {
                     const data = await res.json();
-                    // Atualiza cache local de agentes e seleciona
-                    agentesList.push(data.agent);
-                    selecionarAgente(data.agent);
-                    alert("Agente pré-cadastrado. Aguardando aprovação administrativa.");
+                    
+                    if (creationSource === 'wizard') {
+                        agentesList.push(data.agent);
+                        selecionarAgente(data.agent);
+                        fecharBusca();
+                        alert("Agente pré-cadastrado! Requer aprovação da gestão.");
+                    } else {
+                        alert("Agente cadastrado com sucesso!");
+                        carregarGestao();
+                    }
+                    fecharModalNovoAgente();
                 } else {
-                    alert("Erro ao cadastrar novo agente.");
+                    const err = await res.json();
+                    alert("Erro ao cadastrar novo agente: " + (err.error || "Erro desconhecido"));
                 }
             } catch (err) {
                 alert("Erro ao salvar agente: " + err.message);
@@ -1353,33 +1427,7 @@
             }
         }
 
-        async function cadastrarAgenteAdmin() {
-            const nome = prompt("Digite o nome completo do agente:");
-            if (!nome) return;
-            const matricula = prompt("Digite a matrícula do agente:");
-            if (!matricula) return;
-            const tipo = prompt("Digite o tipo do agente ('policial' ou 'detran'):");
-            if (tipo !== 'policial' && tipo !== 'detran') {
-                alert("Tipo inválido. Escolha 'policial' ou 'detran'.");
-                return;
-            }
-
-            try {
-                const res = await fetch("/api/agentes", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ nome, matricula, tipo, aprovado: 1 })
-                });
-                if (res.ok) {
-                    alert("Agente cadastrado com sucesso!");
-                    carregarGestao();
-                } else {
-                    alert("Erro ao salvar agente.");
-                }
-            } catch (err) {
-                alert("Erro de conexão: " + err.message);
-            }
-        }
+        // O cadastro de agentes é agora tratado pela função unificada salvarNovoAgente(e)
 
         // --- UTILS ---
         function validarCPFRegex(cpf) {
