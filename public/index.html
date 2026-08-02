@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Operação Lei Seca - Abordagem</title>
+    
+    <!-- Tailwind CSS (via CDN para prototipação) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js para o Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: { 50: '#f0f9ff', 100: '#e0f2fe', 200: '#bae6fd', 300: '#7dd3fc', 400: '#38bdf8', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1', 800: '#075985', 900: '#0c4a6e' },
+                        detran: { blue: '#003366', yellow: '#FFCC00' } // Cores do Governo MT
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Ocultar barra de rolagem mas manter funcionalidade */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Animações suaves de transição */
+        .view-section { display: none; animation: fadeIn 0.3s ease-out forwards; }
+        .view-section.active { display: block; }
+        
+        .step-container { display: none; animation: slideIn 0.3s ease-out forwards; }
+        .step-container.active { display: block; }
+        
+        @keyframes slideIn { from { opacity: 0; transform: translateX(15px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Estilos dos Radio Buttons (Cards) customizados para toque mobile */
+        .option-card input:checked + div {
+            border-color: #0369a1; /* brand-700 */
+            background-color: #f0f9ff; /* brand-50 */
+            box-shadow: 0 0 0 1px #0369a1;
+        }
+        .option-card input:checked + div .icon-check { opacity: 1; transform: scale(1); }
+        
+        /* Checkboxes (Infrações) customizados */
+        .custom-checkbox input:checked + div { background-color: #0369a1; border-color: #0369a1; }
+        .custom-checkbox input:checked + div svg { display: block; }
+
+        /* Paddings para não sobrepor botões fixos */
+        .pb-safe { padding-bottom: calc(env(safe-area-inset-bottom) + 90px); } 
+        
+        /* Modal Background */
+        .modal-overlay { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(2px); }
+        
+        /* Ocultar elementos exclusivos de Admin por padrão */
+        .admin-block { display: none !important; }
+        body.is-admin .admin-block { display: flex !important; }
+        body.is-admin .admin-block-section { display: block !important; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden text-slate-800" id="app-body">
+
+    <!-- CABEÇALHO (Logo e Login) -->
+    <header class="bg-white px-4 py-3 flex items-center justify-between shadow-sm z-20 shrink-0 border-b border-slate-200 relative">
+        <div class="h-10 flex items-center">
+            <img src="https://www.detran.mt.gov.br/image/layout_set_logo?img_id=39397731&t=1783521356681" 
+                 alt="DETRAN MT" 
+                 class="h-8 object-contain"
+                 onerror="this.onerror=null; this.outerHTML='<span class=\'font-black text-xl text-detran-blue tracking-tighter\'>DETRAN<span class=\'text-detran-yellow\'>.</span></span>';">
+        </div>
+        
+        <!-- Botão Discreto de Acesso Master (Cadeado) -->
+        <button onclick="abrirModalLogin()" class="w-10 h-10 rounded-full text-slate-300 hover:text-slate-500 flex items-center justify-center transition-colors">
+            <i class="fa-solid fa-lock text-sm" id="lock-icon"></i>
+        </button>
+    </header>
+
+    <main class="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar bg-slate-50 relative pb-safe" id="main-content">
+        
+        <!-- ==========================================
+             VIEW 1: FORMULÁRIO WIZARD (OPERAÇÃO)
+             ========================================== -->
+        <section id="view-form" class="view-section active h-full">
+            
+            <!-- Barra de Progresso Superior -->
+            <div class="sticky top-0 bg-white/90 backdrop-blur px-4 py-3 z-10 border-b border-slate-100 shadow-sm">
+                <div class="flex justify-between text-xs font-bold text-slate-500 mb-2">
+                    <span id="step-title">1. EQUIPE</span>
+                    <span id="step-percentage">14%</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-2">
+                    <div id="progress-bar" class="bg-brand-600 h-2 rounded-full transition-all duration-300" style="width: 14%"></div>
+                </div>
+            </div>
+
+            <div class="max-w-md mx-auto p-4 pt-6 pb-24">
+                <form id="abordagemForm" onsubmit="finalizarFormulario(event)">
+                    
+                    <!-- PASSO 1: EQUIPE -->
+                    <div class="step-container active" data-step="1">
+                        <div class="mb-6 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center text-lg"><i class="fa-solid fa-users"></i></div>
+                            <div><h2 class="text-xl font-bold text-slate-800">Equipe</h2><p class="text-xs text-slate-500">Identificação dos agentes da operação.</p></div>
+                        </div>
+
+                        <div class="space-y-5">
+                            <div class="relative">
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Policial Responsável <span class="text-red-500">*</span></label>
+                                <div onclick="abrirBuscaAgente('policial')" class="w-full p-3.5 bg-white border border-slate-300 rounded-xl flex items-center justify-between text-slate-500 cursor-text shadow-sm" id="display-policial">
+                                    <div class="flex items-center gap-2"><i class="fa-solid fa-magnifying-glass text-slate-400"></i><span class="text-sm">Buscar Policial...</span></div>
+                                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                                </div>
+                                <input type="hidden" id="policial_id" required>
+                            </div>
+
+                            <div class="relative">
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Agente DETRAN-MT <span class="text-red-500">*</span></label>
+                                <div onclick="abrirBuscaAgente('detran')" class="w-full p-3.5 bg-white border border-slate-300 rounded-xl flex items-center justify-between text-slate-500 cursor-text shadow-sm" id="display-detran">
+                                    <div class="flex items-center gap-2"><i class="fa-solid fa-magnifying-glass text-slate-400"></i><span class="text-sm">Buscar Agente...</span></div>
+                                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                                </div>
+                                <input type="hidden" id="agente_id" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PASSO 2: CONDUTOR -->
+                    <div class="step-container" data-step="2">
+                        <div class="mb-6 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-lg"><i class="fa-solid fa-id-card"></i></div>
+                            <div><h2 class="text-xl font-bold text-slate-800">Condutor</h2><p class="text-xs text-slate-500">Dados da pessoa abordada.</p></div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">CPF <span class="text-red-500">*</span></label>
+                                <div class="relative">
+                                    <input type="tel" id="cpf_condutor" maxlength="11" oninput="formatarEValidarCPF(this)" class="w-full p-3.5 pr-12 bg-white border border-slate-300 rounded-xl outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-sm shadow-sm transition-colors" placeholder="Apenas números" required>
+                                    <button type="button" id="btn-busca-cpf" onclick="consultarAPI('cpf')" class="absolute right-2 top-2 bottom-2 w-10 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg flex items-center justify-center transition-colors">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                    </button>
+                                </div>
+                                <span id="cpf-erro" class="text-xs text-red-500 font-medium hidden mt-1"><i class="fa-solid fa-circle-exclamation"></i> CPF Inválido</span>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Nome do Condutor <span class="text-red-500">*</span></label>
+                                <input type="text" id="nome_condutor" class="w-full p-3.5 bg-white border border-slate-300 rounded-xl outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 uppercase text-sm shadow-sm" placeholder="NOME COMPLETO" required>
+                                <p id="api-aviso-cpf" class="text-[10px] text-emerald-600 mt-1 hidden"><i class="fa-solid fa-circle-check"></i> Consulta realizada com sucesso.</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Sexo <span class="text-red-500">*</span></label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <label class="option-card relative cursor-pointer">
+                                        <input type="radio" name="sexo" value="M" class="peer sr-only" required>
+                                        <div class="p-3 border border-slate-200 rounded-xl text-center bg-white transition-all text-sm font-medium text-slate-700">Masculino</div>
+                                    </label>
+                                    <label class="option-card relative cursor-pointer">
+                                        <input type="radio" name="sexo" value="F" class="peer sr-only">
+                                        <div class="p-3 border border-slate-200 rounded-xl text-center bg-white transition-all text-sm font-medium text-slate-700">Feminino</div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PASSO 3: VEÍCULO -->
+                    <div class="step-container" data-step="3">
+                        <div class="mb-6 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center text-lg"><i class="fa-solid fa-car"></i></div>
+                            <div><h2 class="text-xl font-bold text-slate-800">Veículo</h2><p class="text-xs text-slate-500">Informações do veículo abordado.</p></div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Placa <span class="text-red-500">*</span></label>
+                                <div class="relative">
+                                    <input type="text" id="placa_veiculo" maxlength="7" oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); validarPlaca(this);" class="w-full p-3.5 pr-12 bg-white border border-slate-300 rounded-xl outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-center text-lg font-black tracking-widest shadow-sm transition-colors" placeholder="ABC1D23" required>
+                                    <button type="button" id="btn-busca-placa" onclick="consultarAPI('placa')" class="absolute right-2 top-2 bottom-2 w-10 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg flex items-center justify-center transition-colors">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                    </button>
+                                </div>
+                                <span id="placa-erro" class="text-xs text-red-500 font-medium hidden mt-1 text-center block w-full"><i class="fa-solid fa-circle-exclamation"></i> Formato de placa inválido</span>
+                                <p id="api-aviso-placa" class="text-[10px] text-emerald-600 mt-1 hidden text-center"><i class="fa-solid fa-circle-check"></i> Consulta realizada com sucesso.</p>
+                            </div>
+                            
+                            <!-- DADOS DO VEÍCULO -->
+                            <div id="dados_estendidos_veiculo" class="hidden bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2 mt-2">
+                                <div class="flex justify-between border-b border-slate-200 pb-1">
+                                    <span class="text-xs text-slate-500 font-bold">Marca/Modelo:</span>
+                                    <span class="text-xs text-slate-800 font-medium uppercase" id="veiculo_marca_modelo">--</span>
+                                </div>
+                                <div class="flex justify-between border-b border-slate-200 pb-1">
+                                    <span class="text-xs text-slate-500 font-bold">Cor:</span>
+                                    <span class="text-xs text-slate-800 font-medium uppercase" id="veiculo_cor">--</span>
+                                </div>
+                                <div class="flex justify-between border-b border-slate-200 pb-1">
+                                    <span class="text-xs text-slate-500 font-bold">Ano/Mod:</span>
+                                    <span class="text-xs text-slate-800 font-medium" id="veiculo_ano">--</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-xs text-slate-500 font-bold">Situação:</span>
+                                    <span class="text-xs font-black uppercase" id="veiculo_situacao">--</span>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Tipo <span class="text-red-500">*</span></label>
+                                <div class="grid gap-3">
+                                    <label class="option-card relative cursor-pointer">
+                                        <input type="radio" name="tipo_veiculo" value="auto" class="peer sr-only" required>
+                                        <div class="p-4 border border-slate-200 rounded-xl flex items-center gap-3 bg-white transition-all">
+                                            <i class="fa-solid fa-car-side text-slate-400 text-xl"></i>
+                                            <span class="font-semibold text-sm text-slate-700">Automóvel / Caminhonete</span>
+                                        </div>
+                                    </label>
+                                    <label class="option-card relative cursor-pointer">
+                                        <input type="radio" name="tipo_veiculo" value="moto" class="peer sr-only">
+                                        <div class="p-4 border border-slate-200 rounded-xl flex items-center gap-3 bg-white transition-all">
+                                            <i class="fa-solid fa-motorcycle text-slate-400 text-xl"></i>
+                                            <span class="font-semibold text-sm text-slate-700">Motocicleta</span>
+                                        </div>
+                                    </label>
+                                    <label class="option-card relative cursor-pointer">
+                                        <input type="radio" name="tipo_veiculo" value="outro" class="peer sr-only">
+                                        <div class="p-4 border border-slate-200 rounded-xl flex items-center gap-3 bg-white transition-all">
+                                            <i class="fa-solid fa-truck text-slate-400 text-xl"></i>
+                                            <span class="font-semibold text-sm text-slate-700">Outro (Ônibus, Caminhão)</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PASSO 4: ETILÔMETRO -->
+                    <div class="step-container" data-step="4">
+                        <div class="mb-6 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center text-lg"><i class="fa-solid fa-lungs"></i></div>
+                            <div><h2 class="text-xl font-bold text-slate-800">Etilômetro</h2><p class="text-xs text-slate-500">Resultado do teste de alcoolemia.</p></div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <label class="option-card relative cursor-pointer block">
+                                <input type="radio" name="etilometro" value="regular" class="peer sr-only" required>
+                                <div class="p-4 border border-slate-200 rounded-xl bg-white flex flex-col transition-all">
+                                    <span class="font-bold text-green-600 text-sm mb-1"><i class="fa-solid fa-check-circle mr-1"></i> Regular</span>
+                                    <span class="text-xs text-slate-500">&lt; 0,05 mg/L ou sem indícios</span>
+                                </div>
+                            </label>
+                            
+                            <label class="option-card relative cursor-pointer block">
+                                <input type="radio" name="etilometro" value="infracao" class="peer sr-only">
+                                <div class="p-4 border border-slate-200 rounded-xl bg-white flex flex-col transition-all">
+                                    <span class="font-bold text-orange-500 text-sm mb-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Álcool Detectado (Infração)</span>
+                                    <span class="text-xs text-slate-500">0,05 a 0,33 mg/L</span>
+                                </div>
+                            </label>
+
+                            <label class="option-card relative cursor-pointer block">
+                                <input type="radio" name="etilometro" value="crime" class="peer sr-only">
+                                <div class="p-4 border border-slate-200 rounded-xl bg-white flex flex-col transition-all">
+                                    <span class="font-bold text-red-600 text-sm mb-1"><i class="fa-solid fa-handcuffs mr-1"></i> Crime - Prisão</span>
+                                    <span class="text-xs text-slate-500">≥ 0,34 mg/L</span>
+                                </div>
+                            </label>
+
+                             <label class="option-card relative cursor-pointer block">
+                                <input type="radio" name="etilometro" value="recusa_detido" class="peer sr-only">
+                                <div class="p-4 border border-slate-200 rounded-xl bg-white flex flex-col transition-all">
+                                    <span class="font-bold text-purple-600 text-sm mb-1"><i class="fa-solid fa-ban mr-1"></i> Recusa - Detido</span>
+                                    <span class="text-xs text-slate-500">Com sinais de embriaguez</span>
+                                </div>
+                            </label>
+                            
+                            <label class="option-card relative cursor-pointer block">
+                                <input type="radio" name="etilometro" value="recusa_liberado" class="peer sr-only">
+                                <div class="p-4 border border-slate-200 rounded-xl bg-white flex flex-col transition-all">
+                                    <span class="font-bold text-blue-600 text-sm mb-1"><i class="fa-solid fa-user-shield mr-1"></i> Recusa - Liberado</span>
+                                    <span class="text-xs text-slate-500">Sem sinais de embriaguez</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- PASSO 5: TRIAGEM -->
+                    <div class="step-container" data-step="5">
+                        <div class="mb-6 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-yellow-100 text-yellow-600 flex items-center justify-center text-lg"><i class="fa-solid fa-traffic-light"></i></div>
+                            <div><h2 class="text-xl font-bold text-slate-800">Infrações</h2><p class="text-xs text-slate-500">Avaliação inicial do veículo/condutor.</p></div>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-center mb-6">
+                            <h3 class="font-bold text-slate-800 text-lg mb-2">Constatou Infrações?</h3>
+                            <p class="text-sm text-slate-500 mb-5">Além do teste de etilômetro, há outras infrações a registrar (ex: CNH vencida, sem cinto, farol)?</p>
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="option-card relative cursor-pointer">
+                                    <input type="radio" name="tem_infracao" value="sim" class="peer sr-only" required onchange="toggleInfracoes(true)">
+                                    <div class="p-3 border-2 border-slate-200 rounded-xl bg-white font-bold text-slate-700 transition-all">SIM</div>
+                                </label>
+                                <label class="option-card relative cursor-pointer">
+                                    <input type="radio" name="tem_infracao" value="nao" class="peer sr-only" onchange="toggleInfracoes(false)">
+                                    <div class="p-3 border-2 border-slate-200 rounded-xl bg-white font-bold text-slate-700 transition-all">NÃO</div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PASSO 6: LISTA DE INFRAÇÕES -->
+                    <div class="step-container" data-step="6">
+                        <div class="mb-4 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-lg"><i class="fa-solid fa-file-invoice"></i></div>
+                            <div><h2 class="text-xl font-bold text-slate-800">Registrar Infrações</h2><p class="text-xs text-slate-500">Selecione todas aplicáveis.</p></div>
+                        </div>
+
+                        <!-- Busca Rápida -->
+                        <div class="sticky top-[48px] bg-slate-50 pt-2 pb-3 z-10">
+                            <div class="relative">
+                                <i class="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i>
+                                <input type="text" id="busca_infracao" onkeyup="filtrarInfracoes()" placeholder="Buscar por código ou descrição..." class="w-full pl-9 p-2.5 bg-white border border-slate-300 rounded-lg text-sm outline-none focus:border-brand-500 shadow-sm">
+                            </div>
+                        </div>
+
+                        <div class="space-y-2 mt-2 h-72 overflow-y-auto pr-1 no-scrollbar" id="lista_infracoes">
+                            <!-- Preenchido dinamicamente -->
+                        </div>
+                        
+                        <div class="mt-4">
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Outra Infração (Especificar)</label>
+                            <input type="text" id="outra_infracao" class="w-full p-3 bg-white border border-slate-300 rounded-xl outline-none text-sm shadow-sm" placeholder="Digite aqui se não encontrou acima...">
+                        </div>
+                    </div>
+
+                    <!-- PASSO 7: DESTINO E FINALIZAÇÃO -->
+                    <div class="step-container" data-step="7">
+                        <div class="mb-6 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center text-lg"><i class="fa-solid fa-flag-checkered"></i></div>
+                            <div><h2 class="text-xl font-bold text-slate-800">Finalização</h2><p class="text-xs text-slate-500">Destino do veículo e CRR.</p></div>
+                        </div>
+
+                        <div class="space-y-5">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Destino do Veículo <span class="text-red-500">*</span></label>
+                                <div class="grid gap-2">
+                                    <label class="option-card relative cursor-pointer"><input type="radio" name="destino" value="liberado" class="peer sr-only" required><div class="p-3 border border-slate-200 rounded-xl bg-white text-sm font-medium transition-all">Liberado no local</div></label>
+                                    <label class="option-card relative cursor-pointer"><input type="radio" name="destino" value="removido" class="peer sr-only"><div class="p-3 border border-slate-200 rounded-xl bg-white text-sm font-medium transition-all">Removido para o pátio</div></label>
+                                    <label class="option-card relative cursor-pointer"><input type="radio" name="destino" value="entregue" class="peer sr-only"><div class="p-3 border border-slate-200 rounded-xl bg-white text-sm font-medium transition-all">Entregue a condutor habilitado</div></label>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">CRR Lavrada? <span class="text-red-500">*</span></label>
+                                <div class="flex gap-3">
+                                    <label class="option-card relative cursor-pointer flex-1"><input type="radio" name="crr" value="sim" class="peer sr-only" required><div class="p-3 border border-slate-200 rounded-xl bg-white text-center text-sm font-bold transition-all">SIM</div></label>
+                                    <label class="option-card relative cursor-pointer flex-1"><input type="radio" name="crr" value="nao" class="peer sr-only"><div class="p-3 border border-slate-200 rounded-xl bg-white text-center text-sm font-bold transition-all">NÃO</div></label>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Observações (Opcional)</label>
+                                <textarea id="observacoes" class="w-full p-3 bg-white border border-slate-300 rounded-xl outline-none text-sm shadow-sm h-20 resize-none" placeholder="Detalhes adicionais..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PASSO 8: TELA DE SUCESSO -->
+                    <div class="step-container text-center py-12" data-step="8">
+                        <div class="w-24 h-24 bg-green-100 text-green-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-sm border-4 border-white">
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+                        <h2 class="text-2xl font-black text-slate-800 mb-2">Abordagem Registrada!</h2>
+                        <p class="text-sm text-slate-500 mb-8">Dados salvos com sucesso no banco de dados.</p>
+                        
+                        <button type="button" onclick="location.reload()" class="w-full bg-brand-600 text-white font-bold py-4 rounded-xl shadow-md active:scale-95 transition-transform text-sm">
+                            NOVA ABORDAGEM
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Barra de Ações (Voltar/Avançar) -->
+            <div class="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 flex justify-between gap-3 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-30 transition-all duration-300" id="action-bar-form" style="padding-bottom: calc(1rem + env(safe-area-inset-bottom));">
+                <button type="button" id="btn-prev" onclick="changeStep(-1)" class="hidden w-1/3 py-3.5 bg-slate-100 border border-slate-300 text-slate-700 rounded-xl font-bold active:bg-slate-200 text-sm transition-colors">
+                    Voltar
+                </button>
+                <button type="button" id="btn-next" onclick="changeStep(1)" class="w-full py-3.5 bg-brand-600 text-white rounded-xl font-bold shadow-md active:bg-brand-700 transition-colors flex justify-center items-center gap-2 text-sm">
+                    Avançar <i class="fa-solid fa-arrow-right"></i>
+                </button>
+                <button type="submit" form="abordagemForm" id="btn-submit" class="hidden w-full py-3.5 bg-green-600 text-white rounded-xl font-bold shadow-md active:bg-green-700 transition-colors flex justify-center items-center gap-2 text-sm">
+                    Finalizar Abordagem
+                </button>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             VIEW 2: DASHBOARD (ADMIN ONLY)
+             ========================================== -->
+        <section id="view-dashboard" class="view-section admin-block-section w-full max-w-5xl mx-auto p-4 pb-24">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-2xl font-black text-slate-800 mb-1">Painel Analítico</h2>
+                    <p class="text-sm text-slate-500">Dados reais da operação.</p>
+                </div>
+                <button onclick="window.print()" class="bg-slate-800 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-sm flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-print"></i> Imprimir
+                </button>
+            </div>
+
+            <!-- KPIs -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-bold text-slate-500 mb-1">Abordagens</p>
+                    <h3 class="text-3xl font-black text-brand-600" id="kpi-total">0</h3>
+                    <p class="text-[10px] text-green-500 font-bold mt-1"><i class="fa-solid fa-sync fa-spin"></i> Atualizado</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-bold text-slate-500 mb-1">Prisões (Crime)</p>
+                    <h3 class="text-3xl font-black text-red-500" id="kpi-crimes">0</h3>
+                    <p class="text-[10px] text-slate-400 mt-1">Art. 165 (≥ 0,34 mg/L)</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-bold text-slate-500 mb-1">Recusas</p>
+                    <h3 class="text-2xl font-black text-purple-600" id="kpi-recusas">0</h3>
+                    <p class="text-[10px] text-slate-400 mt-1">Art. 165-A</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    <p class="text-xs font-bold text-slate-500 mb-1">Outras Infrações</p>
+                    <h3 class="text-2xl font-black text-orange-500" id="kpi-outras">0</h3>
+                    <p class="text-[10px] text-slate-400 mt-1">CNH, Licenciamento, etc.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <!-- Gráfico Etilômetro -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    <h4 class="text-sm font-bold text-slate-700 mb-4">Teste de Alcoolemia</h4>
+                    <div class="relative h-48 w-full">
+                        <canvas id="chartEtilometro"></canvas>
+                    </div>
+                </div>
+
+                <!-- Gráfico Veículos -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                    <h4 class="text-sm font-bold text-slate-700 mb-4">Tipos de Veículos Abordados</h4>
+                    <div class="relative h-48 w-full">
+                        <canvas id="chartVeiculos"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráfico Linha do Tempo -->
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-6">
+                <h4 class="text-sm font-bold text-slate-700 mb-4">Volume de Abordagens por Hora</h4>
+                <div class="relative h-48 w-full">
+                    <canvas id="chartEvolucao"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             VIEW 3: GESTÃO (ADMIN ONLY)
+             ========================================== -->
+        <section id="view-gestao" class="view-section admin-block-section w-full max-w-5xl mx-auto p-4 pb-24">
+            <div class="flex justify-between items-end mb-6">
+                <div>
+                    <h2 class="text-2xl font-black text-slate-800 mb-1">Gestão do Sistema</h2>
+                    <p class="text-sm text-slate-500">Controle de efetivo, infrações e dados.</p>
+                </div>
+                <button onclick="logoutAdmin()" class="text-red-500 px-3 py-2 rounded-lg text-xs font-bold bg-red-50 flex items-center gap-2 border border-red-100 active:scale-95 transition-transform">
+                    Sair <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+
+            <!-- 1. VALIDAÇÃO DE EFETIVO (AGENTES PENDENTES) -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm mb-6 overflow-hidden" id="card-agentes-pendentes">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-amber-50">
+                    <h3 class="font-bold text-amber-800 text-sm"><i class="fa-solid fa-user-clock text-amber-500 mr-2"></i> Validação de Novos Agentes</h3>
+                    <span class="bg-amber-200 text-amber-800 text-xs font-black px-2 py-0.5 rounded-full" id="badge-pendentes">0 Pendentes</span>
+                </div>
+                <div class="p-4 bg-amber-50/30">
+                    <p class="text-xs text-slate-500 mb-3">Agentes inseridos pelas equipes de rua aguardando aprovação oficial.</p>
+                    <div class="space-y-3" id="lista-agentes-pendentes">
+                        <!-- Injetado dinamicamente -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. GESTÃO DE EFETIVO -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm mb-6 overflow-hidden">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="font-bold text-slate-800 text-sm"><i class="fa-solid fa-users-gear text-slate-400 mr-2"></i> Base de Agentes Cadastrados</h3>
+                    <button onclick="cadastrarAgenteAdmin()" class="text-brand-600 text-xs font-bold bg-brand-50 px-3 py-1.5 rounded-lg border border-brand-100"><i class="fa-solid fa-plus"></i> Novo</button>
+                </div>
+                <div class="p-4 flex flex-col gap-3" id="lista-agentes-cadastrados">
+                    <!-- Injetado dinamicamente -->
+                </div>
+            </div>
+            
+            <!-- 3. GESTÃO DE INFRAÇÕES -->
+             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm mb-6 overflow-hidden">
+                <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="font-bold text-slate-800 text-sm"><i class="fa-solid fa-list-check text-slate-400 mr-2"></i> Formulário: Ativação de Infrações</h3>
+                </div>
+                <div class="p-4">
+                    <p class="text-xs text-slate-500 mb-4">Ative ou desative as infrações disponíveis no formulário de rua.</p>
+                    <div class="space-y-3" id="lista-infracoes-gestao">
+                        <!-- Injetado dinamicamente -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. EXPORTAÇÃO DE DADOS -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm mb-6 overflow-hidden">
+                 <div class="p-4 border-b border-slate-100 bg-slate-50">
+                    <h3 class="font-bold text-slate-800 text-sm"><i class="fa-solid fa-file-export text-slate-400 mr-2"></i> Exportação do Banco de Dados</h3>
+                    <p class="text-xs text-slate-500 mt-1">Extraia todas as abordagens salvas no banco de dados Cloudflare D1 em formato CSV/Excel.</p>
+                </div>
+                <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <a href="/api/export" class="py-4 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:bg-emerald-100 transition-colors shadow-sm text-center">
+                        <i class="fa-solid fa-file-excel text-lg"></i> Baixar Planilha (.csv / Excel)
+                    </a>
+                    <button onclick="window.print()" class="py-4 bg-red-50 text-red-700 border border-red-200 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:bg-red-100 transition-colors shadow-sm">
+                        <i class="fa-solid fa-file-pdf text-lg"></i> Imprimir Relatório PDF
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- BARRA INFERIOR (BOTTOM NAV) - SÓ VISÍVEL PARA ADMIN -->
+    <nav id="admin-bottom-nav" class="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 justify-around text-xs font-medium z-40 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] admin-block" style="padding-bottom: env(safe-area-inset-bottom);">
+        <a href="#" onclick="switchView('view-form', this)" class="nav-btn active flex-1 flex flex-col items-center py-3 text-brand-600">
+            <i class="fa-solid fa-clipboard-list text-xl mb-1"></i>
+            <span>Operação</span>
+        </a>
+        <a href="#" onclick="switchView('view-dashboard', this)" class="nav-btn flex-1 flex flex-col items-center py-3 text-slate-400 hover:text-brand-600 transition-colors">
+            <i class="fa-solid fa-chart-pie text-xl mb-1"></i>
+            <span>Painel</span>
+        </a>
+        <a href="#" onclick="switchView('view-gestao', this)" class="nav-btn flex-1 flex flex-col items-center py-3 text-slate-400 hover:text-brand-600 transition-colors">
+            <i class="fa-solid fa-users-gear text-xl mb-1"></i>
+            <span>Gestão</span>
+        </a>
+    </nav>
+
+    <!-- MODAL DE LOGIN MASTER (O Cadeado) -->
+    <div id="modalLogin" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div class="absolute inset-0 modal-overlay" onclick="fecharLogin()"></div>
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 z-10 shadow-2xl relative">
+            <button onclick="fecharLogin()" class="absolute top-4 right-4 w-8 h-8 bg-slate-100 rounded-full text-slate-500 font-bold"><i class="fa-solid fa-xmark"></i></button>
+            
+            <div class="text-center mb-6 mt-2">
+                <div class="w-14 h-14 bg-slate-800 text-white rounded-full flex items-center justify-center text-xl mx-auto mb-3"><i class="fa-solid fa-shield-halved"></i></div>
+                <h3 class="font-black text-xl text-slate-800">Acesso Restrito</h3>
+                <p class="text-sm text-slate-500">Área exclusiva para gestão da operação.</p>
+            </div>
+            
+            <form onsubmit="realizarLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Usuário</label>
+                    <input type="text" id="loginUser" placeholder="Ex: francisco.xavier" class="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:border-brand-500 text-sm" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Senha</label>
+                    <input type="password" id="loginPass" placeholder="Digite sua senha" class="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:border-brand-500 text-sm" required>
+                </div>
+                <button type="submit" class="w-full bg-slate-800 text-white font-bold py-3.5 rounded-xl shadow-md active:bg-slate-900 transition-colors mt-2 text-sm">
+                    Entrar no Painel
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL BUSCA DE AGENTE -->
+    <div id="modalBusca" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+        <div class="absolute inset-0 modal-overlay" onclick="fecharBusca()"></div>
+        <div class="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl h-[80vh] sm:h-auto sm:max-h-[80vh] flex flex-col z-10 animate-[slideIn_0.2s_ease-out]">
+            <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                <h3 class="font-bold text-slate-800" id="tituloBusca">Selecionar</h3>
+                <button type="button" onclick="fecharBusca()" class="w-8 h-8 bg-slate-200 rounded-full text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-4 border-b border-slate-200">
+                <div class="relative flex gap-2">
+                    <div class="relative flex-1">
+                        <i class="fa-solid fa-search absolute left-3 top-3.5 text-slate-400"></i>
+                        <input type="text" id="inputFiltroAgente" onkeyup="filtrarListaAgentes()" placeholder="Digite nome, graduação ou matrícula..." class="w-full pl-10 p-3 bg-white border border-slate-300 rounded-xl text-sm outline-none focus:border-brand-500 shadow-sm" autofocus>
+                    </div>
+                    <button type="button" id="btnAdicionarManual" onclick="adicionarAgenteManual()" class="hidden bg-brand-600 text-white px-4 rounded-xl text-sm font-bold shadow-sm whitespace-nowrap active:bg-brand-700">
+                        Cadastrar novo
+                    </button>
+                </div>
+                <p id="msg-busca-livre" class="text-xs text-slate-500 mt-2 hidden"><i class="fa-solid fa-circle-info mr-1"></i>Agente não encontrado? Digite o nome e matrícula e clique em "Cadastrar novo".</p>
+            </div>
+            <div class="flex-1 overflow-y-auto p-2" id="listaResultadosAgente">
+                <!-- Preenchido via JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. ESTADO GLOBAL DA APLICAÇÃO ---
+        let agentesList = [];
+        let infracoesList = [];
+        let currentStep = 1;
+        const totalStepsForm = 7; 
+        let temInfracaoAdicional = false;
+        
+        let chartInstance = null;
+        let chartVeiculosInstance = null;
+        let chartEvolucaoInstance = null;
+
+        // --- 2. INICIALIZAÇÃO E FETCHES ---
+        window.onload = async () => {
+            await carregarDadosIniciais();
+            updateUI();
+            
+            // Verificar se o admin já está logado
+            if (localStorage.getItem("admin_logged") === "true") {
+                document.getElementById("app-body").classList.add("is-admin");
+                document.getElementById("lock-icon").className = "fa-solid fa-unlock-keyhole text-brand-600";
+            }
+        };
+
+        async function carregarDadosIniciais() {
+            try {
+                // Carregar Infrações ativas para o wizard
+                const resInf = await fetch("/api/infracoes");
+                infracoesList = await resInf.json();
+                renderInfracoes();
+
+                // Carregar Agentes ativos para o wizard
+                const resAg = await fetch("/api/agentes");
+                agentesList = await resAg.json();
+            } catch (err) {
+                console.error("Erro ao carregar dados iniciais:", err);
+            }
+        }
+
+        // --- 3. LÓGICA DO WIZARD (FORMULÁRIO) ---
+        function updateUI() {
+            document.querySelectorAll('.step-container').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.step-container[data-step="${currentStep}"]`).classList.add('active');
+
+            if (currentStep <= totalStepsForm) {
+                const percent = Math.round((currentStep / totalStepsForm) * 100);
+                document.getElementById('progress-bar').style.width = `${percent}%`;
+                document.getElementById('step-percentage').innerText = `${percent}%`;
+                
+                const titles = ["", "1. EQUIPE", "2. CONDUTOR", "3. VEÍCULO", "4. ETILÔMETRO", "5. TRIAGEM", "6. INFRAÇÕES", "7. FINALIZAÇÃO"];
+                document.getElementById('step-title').innerText = titles[currentStep];
+            }
+
+            const btnPrev = document.getElementById('btn-prev');
+            const btnNext = document.getElementById('btn-next');
+            const btnSubmit = document.getElementById('btn-submit');
+            const actionBar = document.getElementById('action-bar-form');
+
+            if (currentStep === 1) {
+                btnPrev.classList.add('hidden');
+                btnNext.classList.replace('w-2/3', 'w-full');
+            } else if (currentStep <= totalStepsForm) {
+                btnPrev.classList.remove('hidden');
+                btnNext.classList.replace('w-full', 'w-2/3');
+            }
+
+            if (currentStep === totalStepsForm) {
+                btnNext.classList.add('hidden');
+                btnSubmit.classList.remove('hidden');
+            } else if (currentStep < totalStepsForm) {
+                btnNext.classList.remove('hidden');
+                btnSubmit.classList.add('hidden');
+            }
+
+            if (currentStep > totalStepsForm) {
+                actionBar.style.display = 'none';
+                document.querySelector('.sticky.top-0').style.display = 'none'; 
+            } else {
+                actionBar.style.display = 'flex';
+            }
+        }
+
+        function validateStep() {
+            const currentContainer = document.querySelector(`.step-container[data-step="${currentStep}"]`);
+            const requiredInputs = currentContainer.querySelectorAll('[required]');
+            let valid = true;
+
+            requiredInputs.forEach(input => {
+                if (input.type === 'radio') {
+                    const name = input.name;
+                    if (!document.querySelector(`input[name="${name}"]:checked`)) valid = false;
+                } else {
+                    if (!input.value.trim()) valid = false;
+                }
+            });
+
+            if (!valid) {
+                alert('Preencha todos os campos obrigatórios (*) antes de avançar.');
+            }
+            return valid;
+        }
+
+        function changeStep(direction) {
+            if (direction === 1 && !validateStep()) return;
+
+            // Se triagem for Não, pula direto pro 7
+            if (currentStep === 5 && direction === 1 && !temInfracaoAdicional) {
+                currentStep = 7; 
+            } else if (currentStep === 7 && direction === -1 && !temInfracaoAdicional) {
+                currentStep = 5; 
+            } else {
+                currentStep += direction;
+            }
+            
+            updateUI();
+        }
+
+        function toggleInfracoes(tem) {
+            temInfracaoAdicional = tem;
+        }
+
+        async function finalizarFormulario(e) {
+            e.preventDefault();
+            if(!validateStep()) return;
+
+            // Coletar dados
+            const form = document.getElementById("abordagemForm");
+            
+            const selectedInfracoes = [];
+            document.querySelectorAll('input[name="infracoes_selecionadas"]:checked').forEach(cb => {
+                selectedInfracoes.push(cb.value);
+            });
+
+            // Se digitou uma "Outra" infração, podemos concatenar ou registrar
+            const outra = document.getElementById("outra_infracao").value.trim();
+            let obs = document.getElementById("observacoes").value.trim();
+            if (outra) {
+                obs = `[Infração adicional: ${outra}] ` + obs;
+            }
+
+            const payload = {
+                policial_id: document.getElementById("policial_id").value,
+                agente_id: document.getElementById("agente_id").value,
+                cpf_condutor: document.getElementById("cpf_condutor").value,
+                nome_condutor: document.getElementById("nome_condutor").value,
+                sexo: document.querySelector('input[name="sexo"]:checked').value,
+                placa_veiculo: document.getElementById("placa_veiculo").value,
+                tipo_veiculo: document.querySelector('input[name="tipo_veiculo"]:checked').value,
+                etilometro_resultado: document.querySelector('input[name="etilometro"]:checked').value,
+                tem_infracao: document.querySelector('input[name="tem_infracao"]:checked').value,
+                infracoes: selectedInfracoes,
+                destino: document.querySelector('input[name="destino"]:checked').value,
+                crr: document.querySelector('input[name="crr"]:checked').value,
+                observacoes: obs
+            };
+
+            const btnSubmit = document.getElementById("btn-submit");
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Gravando...';
+
+            try {
+                const res = await fetch("/api/abordagens", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    currentStep = 8;
+                    updateUI();
+                } else {
+                    const err = await res.json();
+                    alert("Erro ao gravar abordagem: " + (err.error || "Erro desconhecido"));
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = "Finalizar Abordagem";
+                }
+            } catch (err) {
+                alert("Falha de rede ao gravar dados: " + err.message);
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = "Finalizar Abordagem";
+            }
+        }
+
+        // --- 4. CONSULTA DE CPF E PLACA (API) ---
+        async function consultarAPI(tipo) {
+            let inputId, btnId, param, val;
+            
+            if (tipo === 'cpf') {
+                inputId = 'cpf_condutor';
+                btnId = 'btn-busca-cpf';
+                val = document.getElementById(inputId).value.replace(/\D/g, "");
+                if (val.length !== 11) {
+                    alert("Insira um CPF de 11 dígitos.");
+                    return;
+                }
+                param = `cpf=${val}`;
+            } else {
+                inputId = 'placa_veiculo';
+                btnId = 'btn-busca-placa';
+                val = document.getElementById(inputId).value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                if (val.length !== 7) {
+                    alert("Insira uma placa de 7 caracteres.");
+                    return;
+                }
+                param = `placa=${val}`;
+            }
+
+            const btn = document.getElementById(btnId);
+            const iconeOriginal = btn.innerHTML;
+            
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-brand-600"></i>';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`/api/consulta?${param}`);
+                if (!res.ok) throw new Error("Registro não localizado ou erro no servidor");
+
+                const resData = await res.json();
+                if (resData.found) {
+                    const item = resData.data;
+                    if (tipo === 'cpf') {
+                        document.getElementById('nome_condutor').value = item.nome;
+                        const sexRadio = document.querySelector(`input[name="sexo"][value="${item.sexo}"]`);
+                        if (sexRadio) sexRadio.checked = true;
+                        document.getElementById('api-aviso-cpf').classList.remove('hidden');
+                    } else {
+                        document.getElementById('dados_estendidos_veiculo').classList.remove('hidden');
+                        document.getElementById('api-aviso-placa').classList.remove('hidden');
+                        
+                        document.getElementById('veiculo_marca_modelo').innerText = item.marca_modelo;
+                        document.getElementById('veiculo_cor').innerText = item.cor;
+                        document.getElementById('veiculo_ano').innerText = item.ano;
+                        
+                        const situacaoEl = document.getElementById('veiculo_situacao');
+                        situacaoEl.innerText = item.situacao;
+                        if(item.situacao === 'ROUBO/FURTO') {
+                            situacaoEl.className = 'text-xs font-black uppercase text-red-600 bg-red-100 px-2 py-0.5 rounded';
+                            alert("⚠️ ALERTA: VEÍCULO CONSTA COMO ROUBO OU FURTO no cadastro!");
+                        } else {
+                            situacaoEl.className = 'text-xs font-black uppercase text-green-600 bg-green-100 px-2 py-0.5 rounded';
+                        }
+                    }
+                    
+                    btn.innerHTML = '<i class="fa-solid fa-check text-green-500"></i>';
+                }
+            } catch (err) {
+                alert("Não foi possível consultar os dados automaticamente. Digite os dados manualmente.");
+                btn.innerHTML = '<i class="fa-solid fa-exclamation-triangle text-amber-500"></i>';
+            } finally {
+                btn.disabled = false;
+                setTimeout(() => { btn.innerHTML = iconeOriginal; }, 3000);
+            }
+        }
+
+        // --- 5. LÓGICA DE BUSCA DE AGENTES (AUTOCOMPLETE NO WIZARD) ---
+        let tipoBuscaAtual = '';
+
+        function abrirBuscaAgente(tipo) {
+            tipoBuscaAtual = tipo;
+            document.getElementById('tituloBusca').innerText = tipo === 'policial' ? 'Buscar Policial' : 'Buscar Agente DETRAN';
+            document.getElementById('inputFiltroAgente').value = '';
+            document.getElementById('modalBusca').classList.remove('hidden');
+            
+            // Filtra os agentes da categoria correta
+            const filtrados = agentesList.filter(ag => {
+                if (tipo === 'policial') return ag.tipo === 'policial';
+                return ag.tipo === 'detran';
+            });
+
+            renderizarListaAgentes(filtrados);
+            setTimeout(() => document.getElementById('inputFiltroAgente').focus(), 100);
+        }
+
+        function fecharBusca() {
+            document.getElementById('modalBusca').classList.add('hidden');
+        }
+
+        function renderizarListaAgentes(lista) {
+            const container = document.getElementById('listaResultadosAgente');
+            const termoBusca = document.getElementById('inputFiltroAgente').value.trim();
+            const btnManual = document.getElementById('btnAdicionarManual');
+            const msgBuscaLivre = document.getElementById('msg-busca-livre');
+
+            container.innerHTML = '';
+            
+            if (termoBusca.length > 2) {
+                btnManual.classList.remove('hidden');
+                msgBuscaLivre.classList.remove('hidden');
+            } else {
+                btnManual.classList.add('hidden');
+                msgBuscaLivre.classList.add('hidden');
+            }
+
+            if(lista.length === 0) {
+                container.innerHTML = '<p class="text-center text-slate-500 py-6 text-sm">Nenhum agente localizado.</p>';
+                return;
+            }
+
+            lista.forEach(ag => {
+                const div = document.createElement('div');
+                div.className = 'p-3 border-b border-slate-100 hover:bg-slate-50 active:bg-slate-100 cursor-pointer flex justify-between items-center rounded-lg';
+                div.innerHTML = `<div><p class="font-bold text-sm text-slate-800">${ag.nome}</p><p class="text-xs text-slate-500">Mat: ${ag.matricula}</p></div><i class="fa-solid fa-chevron-right text-slate-300 text-xs"></i>`;
+                div.onclick = () => selecionarAgente(ag);
+                container.appendChild(div);
+            });
+        }
+
+        function filtrarListaAgentes() {
+            const termo = document.getElementById('inputFiltroAgente').value.toLowerCase();
+            const filtrados = agentesList.filter(ag => {
+                const matchesTermo = ag.nome.toLowerCase().includes(termo) || ag.matricula.includes(termo);
+                const matchesTipo = tipoBuscaAtual === 'policial' ? ag.tipo === 'policial' : ag.tipo === 'detran';
+                return matchesTermo && matchesTipo;
+            });
+            renderizarListaAgentes(filtrados);
+        }
+
+        async function adicionarAgenteManual() {
+            const termo = document.getElementById('inputFiltroAgente').value.trim().toUpperCase();
+            if (termo.length < 3) {
+                alert('Digite pelo menos 3 caracteres.');
+                return;
+            }
+            const matricula = prompt("Digite a matrícula do agente (ou deixe em branco):") || "SEM MATRÍCULA";
+
+            const payload = {
+                nome: termo,
+                matricula: matricula,
+                tipo: tipoBuscaAtual,
+                aprovado: 0 // Inserido na rua, requer aprovação do administrador
+            };
+
+            try {
+                const res = await fetch("/api/agentes", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    // Atualiza cache local de agentes e seleciona
+                    agentesList.push(data.agent);
+                    selecionarAgente(data.agent);
+                    alert("Agente pré-cadastrado. Aguardando aprovação administrativa.");
+                } else {
+                    alert("Erro ao cadastrar novo agente.");
+                }
+            } catch (err) {
+                alert("Erro ao salvar agente: " + err.message);
+            }
+        }
+
+        function selecionarAgente(agente) {
+            if (tipoBuscaAtual === 'policial') {
+                document.getElementById('display-policial').innerHTML = `<span class="font-bold text-slate-800 text-sm">${agente.nome}</span> <span class="text-xs text-brand-600 font-bold bg-brand-50 px-2 py-1 rounded">Trocar</span>`;
+                document.getElementById('policial_id').value = agente.id;
+            } else {
+                document.getElementById('display-detran').innerHTML = `<span class="font-bold text-slate-800 text-sm">${agente.nome}</span> <span class="text-xs text-brand-600 font-bold bg-brand-50 px-2 py-1 rounded">Trocar</span>`;
+                document.getElementById('agente_id').value = agente.id;
+            }
+            fecharBusca();
+        }
+
+        // --- 6. RENDERIZAÇÃO DE INFRAÇÕES (WIZARD) ---
+        function renderInfracoes() {
+            const container = document.getElementById('lista_infracoes');
+            container.innerHTML = '';
+            
+            infracoesList.forEach(inf => {
+                const lbl = document.createElement('label');
+                lbl.className = 'custom-checkbox relative cursor-pointer block';
+                lbl.innerHTML = `
+                    <input type="checkbox" name="infracoes_selecionadas" value="${inf.cod}" class="peer sr-only">
+                    <div class="p-3 border border-slate-200 rounded-xl bg-white flex items-start gap-3 transition-all">
+                        <div class="w-5 h-5 rounded bg-slate-100 border border-slate-300 flex items-center justify-center shrink-0 mt-0.5 peer-checked:bg-brand-600 peer-checked:border-brand-600 transition-colors">
+                            <i class="fa-solid fa-check text-white text-xs opacity-0 peer-checked:opacity-100"></i>
+                        </div>
+                        <div>
+                            <span class="font-bold text-slate-800 text-sm block">Art. ${inf.art} <span class="text-xs font-normal text-slate-500">(${inf.cod})</span></span>
+                            <span class="text-xs text-slate-600 leading-tight">${inf.desc}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(lbl);
+            });
+        }
+
+        function filtrarInfracoes() {
+            const query = document.getElementById('busca_infracao').value.toLowerCase();
+            const cards = document.querySelectorAll('#lista_infracoes label');
+            
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                if(text.includes(query)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        // --- 7. LÓGICA DE VALIDAR INPUTS ---
+        function formatarEValidarCPF(input) {
+            let cpf = input.value.replace(/\D/g, '');
+            input.value = cpf; 
+            const erroMsg = document.getElementById('cpf-erro');
+            
+            if (cpf.length === 11) {
+                if(validarCPFRegex(cpf)) {
+                    input.classList.remove('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
+                    input.classList.add('border-green-500', 'focus:border-green-500', 'focus:ring-green-500');
+                    erroMsg.classList.add('hidden');
+                } else {
+                    input.classList.add('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
+                    input.classList.remove('border-green-500', 'focus:border-green-500', 'focus:ring-green-500');
+                    erroMsg.classList.remove('hidden');
+                }
+            } else {
+                input.classList.remove('border-red-500', 'border-green-500', 'focus:border-red-500', 'focus:border-green-500', 'focus:ring-red-500', 'focus:ring-green-500');
+                erroMsg.classList.add('hidden');
+            }
+        }
+
+        function validarPlaca(input) {
+            const placa = input.value;
+            const erroMsg = document.getElementById('placa-erro');
+            const regexPlaca = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/;
+            
+            if(placa.length === 7) {
+                if(regexPlaca.test(placa)) {
+                    input.classList.remove('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
+                    input.classList.add('border-green-500', 'focus:border-green-500', 'focus:ring-green-500');
+                    erroMsg.classList.add('hidden');
+                } else {
+                    input.classList.add('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
+                    input.classList.remove('border-green-500', 'focus:border-green-500', 'focus:ring-green-500');
+                    erroMsg.classList.remove('hidden');
+                }
+            } else {
+                 input.classList.remove('border-red-500', 'border-green-500', 'focus:border-red-500', 'focus:border-green-500', 'focus:ring-red-500', 'focus:ring-green-500');
+                 erroMsg.classList.add('hidden');
+            }
+        }
+
+        // --- 8. GERENCIAMENTO ADMIN E AUTENTICAÇÃO ---
+        function abrirModalLogin() {
+            if (localStorage.getItem("admin_logged") === "true") {
+                switchView('view-dashboard');
+            } else {
+                document.getElementById('modalLogin').classList.remove('hidden');
+            }
+        }
+
+        function fecharLogin() {
+            document.getElementById('modalLogin').classList.add('hidden');
+        }
+
+        async function realizarLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById("loginUser").value.trim();
+            const password = document.getElementById("loginPass").value.trim();
+
+            try {
+                const res = await fetch("/api/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (res.ok) {
+                    localStorage.setItem("admin_logged", "true");
+                    document.getElementById("app-body").classList.add("is-admin");
+                    document.getElementById("lock-icon").className = "fa-solid fa-unlock-keyhole text-brand-600";
+                    fecharLogin();
+                    switchView('view-dashboard');
+                } else {
+                    const err = await res.json();
+                    alert("Acesso negado: " + (err.error || "Usuário ou senha incorretos"));
+                }
+            } catch (err) {
+                alert("Erro ao conectar ao servidor de login: " + err.message);
+            }
+        }
+
+        function logoutAdmin() {
+            localStorage.removeItem("admin_logged");
+            document.getElementById("app-body").classList.remove("is-admin");
+            document.getElementById("lock-icon").className = "fa-solid fa-lock text-slate-300";
+            switchView('view-form');
+        }
+
+        // --- 9. TRANSIÇÕES DE VIEWS ---
+        function switchView(viewId, element) {
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-brand-600', 'active');
+                btn.classList.add('text-slate-400');
+            });
+            if(element) {
+                element.classList.add('text-brand-600', 'active');
+                element.classList.remove('text-slate-400');
+            } else {
+                // Seleciona o botão correspondente dinamicamente
+                const links = document.querySelectorAll('.nav-btn');
+                if (viewId === 'view-form' && links[0]) links[0].classList.add('text-brand-600', 'active');
+                if (viewId === 'view-dashboard' && links[1]) links[1].classList.add('text-brand-600', 'active');
+                if (viewId === 'view-gestao' && links[2]) links[2].classList.add('text-brand-600', 'active');
+            }
+
+            document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            
+            const formActionBar = document.getElementById('action-bar-form');
+            if (viewId !== 'view-form' || currentStep > totalStepsForm) {
+                formActionBar.style.display = 'none';
+            } else {
+                formActionBar.style.display = 'flex';
+            }
+
+            if (viewId === 'view-dashboard') {
+                carregarDashboard();
+            } else if (viewId === 'view-gestao') {
+                carregarGestao();
+            }
+        }
+
+        // --- 10. CARREGAR E RENDERIZAR DASHBOARD REAL ---
+        async function carregarDashboard() {
+            try {
+                const res = await fetch("/api/dashboard");
+                const stats = await res.json();
+
+                // Atualiza KPIs
+                document.getElementById("kpi-total").innerText = stats.kpis.total;
+                document.getElementById("kpi-crimes").innerText = stats.kpis.crimes;
+                document.getElementById("kpi-recusas").innerText = stats.kpis.recusas;
+                document.getElementById("kpi-outras").innerText = stats.kpis.outras;
+
+                // Renderiza gráficos
+                renderCharts(stats.graficos);
+            } catch (err) {
+                console.error("Erro ao carregar dados do painel:", err);
+            }
+        }
+
+        function renderCharts(graficos) {
+            // Grafico 1: Etilometro
+            const ctx1 = document.getElementById('chartEtilometro');
+            if(ctx1) {
+                if(chartInstance) chartInstance.destroy();
+                chartInstance = new Chart(ctx1, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Regular', 'Infração', 'Crime', 'Recusa'],
+                        datasets: [{ data: graficos.etilometro, backgroundColor: ['#10b981', '#f97316', '#ef4444', '#8b5cf6'], borderWidth: 0 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: {size: 10} } } }, cutout: '60%' }
+                });
+            }
+
+            // Grafico 2: Veiculos (Barra)
+            const ctx2 = document.getElementById('chartVeiculos');
+            if(ctx2) {
+                if(chartVeiculosInstance) chartVeiculosInstance.destroy();
+                chartVeiculosInstance = new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Carro', 'Moto', 'Outros'],
+                        datasets: [{ label: 'Quantidade', data: graficos.veiculos, backgroundColor: '#38bdf8', borderRadius: 4 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } } }
+                });
+            }
+
+            // Grafico 3: Evolução (Linha)
+            const ctx3 = document.getElementById('chartEvolucao');
+            if(ctx3) {
+                if(chartEvolucaoInstance) chartEvolucaoInstance.destroy();
+                chartEvolucaoInstance = new Chart(ctx3, {
+                    type: 'line',
+                    data: {
+                        labels: graficos.evolucao.labels,
+                        datasets: [{ label: 'Abordagens', data: graficos.evolucao.data, borderColor: '#0ea5e9', backgroundColor: 'rgba(14, 165, 233, 0.1)', fill: true, tension: 0.4 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } }
+                });
+            }
+        }
+
+        // --- 11. CARREGAR E RENDERIZAR GESTÃO REAL ---
+        async function carregarGestao() {
+            try {
+                // 1. Agentes
+                const resAg = await fetch("/api/agentes?admin=true");
+                const todosAgentes = await resAg.json();
+                agentesList = todosAgentes; // atualiza cache local
+
+                // Renderiza pendentes
+                const pendentes = todosAgentes.filter(a => a.aprovado === 0);
+                const containerPendentes = document.getElementById("lista-agentes-pendentes");
+                const cardPendentes = document.getElementById("card-agentes-pendentes");
+                
+                document.getElementById("badge-pendentes").innerText = `${pendentes.length} Pendentes`;
+                
+                containerPendentes.innerHTML = "";
+                if (pendentes.length === 0) {
+                    cardPendentes.style.display = "none";
+                } else {
+                    cardPendentes.style.display = "block";
+                    pendentes.forEach(ag => {
+                        const div = document.createElement("div");
+                        div.className = "flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-amber-200 rounded-xl shadow-sm";
+                        div.innerHTML = `
+                            <div>
+                                <p class="font-bold text-sm text-slate-800 uppercase">${ag.nome}</p>
+                                <p class="text-[10px] text-slate-400">Tipo: ${ag.tipo.toUpperCase()} | Mat: ${ag.matricula}</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="tratarAgentePendente('${ag.id}', 'aprovar')" class="flex-1 sm:flex-none bg-green-100 text-green-700 px-4 py-2 rounded-lg text-xs font-bold border border-green-200 active:bg-green-200">Aprovar</button>
+                                <button onclick="tratarAgentePendente('${ag.id}', 'rejeitar')" class="flex-1 sm:flex-none bg-red-100 text-red-700 px-4 py-2 rounded-lg text-xs font-bold border border-red-200 active:bg-red-200">Rejeitar</button>
+                            </div>
+                        `;
+                        containerPendentes.appendChild(div);
+                    });
+                }
+
+                // Renderiza cadastrados ativos e inativos
+                const cadastrados = todosAgentes.filter(a => a.aprovado === 1);
+                const containerCadastrados = document.getElementById("lista-agentes-cadastrados");
+                containerCadastrados.innerHTML = "";
+                
+                cadastrados.forEach(ag => {
+                    const div = document.createElement("div");
+                    div.className = "flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors border-b border-slate-100";
+                    div.innerHTML = `
+                        <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-sm">
+                            <i class="fa-solid ${ag.tipo === 'policial' ? 'fa-user-shield' : 'fa-users-gear'}"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-bold text-sm text-slate-800">${ag.nome}</p>
+                            <p class="text-xs text-slate-500">Mat: ${ag.matricula} | Tipo: ${ag.tipo.toUpperCase()}</p>
+                        </div>
+                        <button onclick="toggleStatusAgente('${ag.id}')" class="text-[10px] font-bold px-2.5 py-1 rounded transition-colors ${
+                            ag.ativo === 1 
+                            ? 'text-emerald-600 bg-emerald-50 border border-emerald-100 hover:bg-emerald-100' 
+                            : 'text-slate-400 bg-slate-100 border border-slate-200 hover:bg-slate-200'
+                        }">${ag.ativo === 1 ? 'Ativo' : 'Inativo'}</button>
+                    `;
+                    containerCadastrados.appendChild(div);
+                });
+
+                // 2. Infrações
+                const resInf = await fetch("/api/infracoes?admin=true");
+                const todasInfracoes = await resInf.json();
+                const containerInfracoes = document.getElementById("lista-infracoes-gestao");
+                containerInfracoes.innerHTML = "";
+
+                todasInfracoes.forEach(inf => {
+                    const div = document.createElement("div");
+                    div.className = `flex items-center justify-between p-3 border rounded-xl transition-all ${
+                        inf.ativa === 1 ? 'border-slate-100 hover:shadow-sm' : 'bg-slate-50 border-slate-200 opacity-60'
+                    }`;
+                    div.innerHTML = `
+                        <div>
+                            <p class="text-sm font-bold text-slate-700">Art. ${inf.art} - ${inf.desc}</p>
+                            <p class="text-[10px] text-slate-400">Cod: ${inf.cod}</p>
+                        </div>
+                        <div onclick="toggleStatusInfracao('${inf.cod}')" class="w-11 h-6 rounded-full relative cursor-pointer shadow-inner transition-colors duration-200 ${
+                            inf.ativa === 1 ? 'bg-green-500' : 'bg-slate-300'
+                        }">
+                            <div class="w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all duration-200 ${
+                                inf.ativa === 1 ? 'right-0.5' : 'left-0.5'
+                            }"></div>
+                        </div>
+                    `;
+                    containerInfracoes.appendChild(div);
+                });
+
+            } catch (err) {
+                console.error("Erro ao carregar dados de gestão:", err);
+            }
+        }
+
+        async function tratarAgentePendente(id, action) {
+            try {
+                const res = await fetch("/api/agentes", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id, action })
+                });
+                if (res.ok) {
+                    alert(`Agente ${action === 'aprovar' ? 'aprovado' : 'rejeitado'} com sucesso!`);
+                    carregarGestao();
+                } else {
+                    alert("Erro ao processar ação no agente.");
+                }
+            } catch (err) {
+                alert("Erro de conexão: " + err.message);
+            }
+        }
+
+        async function toggleStatusAgente(id) {
+            try {
+                const res = await fetch("/api/agentes", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id, action: "toggle_ativo" })
+                });
+                if (res.ok) {
+                    carregarGestao();
+                } else {
+                    alert("Erro ao alterar status do agente.");
+                }
+            } catch (err) {
+                alert("Erro de conexão: " + err.message);
+            }
+        }
+
+        async function toggleStatusInfracao(cod) {
+            try {
+                const res = await fetch("/api/infracoes", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ cod, action: "toggle" })
+                });
+                if (res.ok) {
+                    carregarGestao();
+                    carregarDadosIniciais(); // recarrega no wizard
+                } else {
+                    alert("Erro ao alterar status da infração.");
+                }
+            } catch (err) {
+                alert("Erro de conexão: " + err.message);
+            }
+        }
+
+        async function cadastrarAgenteAdmin() {
+            const nome = prompt("Digite o nome completo do agente:");
+            if (!nome) return;
+            const matricula = prompt("Digite a matrícula do agente:");
+            if (!matricula) return;
+            const tipo = prompt("Digite o tipo do agente ('policial' ou 'detran'):");
+            if (tipo !== 'policial' && tipo !== 'detran') {
+                alert("Tipo inválido. Escolha 'policial' ou 'detran'.");
+                return;
+            }
+
+            try {
+                const res = await fetch("/api/agentes", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nome, matricula, tipo, aprovado: 1 })
+                });
+                if (res.ok) {
+                    alert("Agente cadastrado com sucesso!");
+                    carregarGestao();
+                } else {
+                    alert("Erro ao salvar agente.");
+                }
+            } catch (err) {
+                alert("Erro de conexão: " + err.message);
+            }
+        }
+
+        // --- UTILS ---
+        function validarCPFRegex(cpf) {
+            cpf = cpf.replace(/\D/g, '');
+            if (cpf.length !== 11) return false;
+            if (/^(\d)\1{10}$/.test(cpf)) return false; 
+            return true;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "operacao-leiseca"
+compatibility_date = "2026-08-02"
+pages_build_output_dir = "./public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "leiseca_db"
+database_id = "CHANGE_ME_AFTER_CREATING_DATABASE" # Será atualizado quando o banco for criado
