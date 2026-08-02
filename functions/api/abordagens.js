@@ -42,6 +42,10 @@ export async function onRequestPost(context) {
       sexo,
       placa_veiculo,
       tipo_veiculo,
+      veiculo_marca_modelo,
+      veiculo_cor,
+      veiculo_ano,
+      veiculo_situacao,
       etilometro_resultado,
       tem_infracao,
       infracoes, // array de códigos de infração
@@ -105,6 +109,21 @@ export async function onRequestPost(context) {
         "INSERT OR REPLACE INTO condutores (cpf, nome, sexo) VALUES (?, ?, ?)"
       ).bind(cleanCpf, nome_condutor.toUpperCase(), sexo)
     );
+
+    // 4. Registrar/Atualizar veículo no cache
+    if (veiculo_marca_modelo && veiculo_cor && veiculo_ano && veiculo_situacao) {
+      queries.push(
+        env.DB.prepare(
+          "INSERT OR REPLACE INTO veiculos (placa, marca_modelo, cor, ano, situacao) VALUES (?, ?, ?, ?, ?)"
+        ).bind(
+          cleanPlaca,
+          veiculo_marca_modelo.toUpperCase(),
+          veiculo_cor.toUpperCase(),
+          veiculo_ano,
+          veiculo_situacao.toUpperCase()
+        )
+      );
+    }
 
     // Ejecuta em batch (transacionalmente)
     await env.DB.batch(queries);

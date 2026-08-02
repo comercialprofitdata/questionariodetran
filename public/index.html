@@ -213,23 +213,27 @@
                                 <p id="api-aviso-placa" class="text-[10px] text-emerald-600 mt-1 hidden text-center"><i class="fa-solid fa-circle-check"></i> Consulta realizada com sucesso.</p>
                             </div>
                             
-                            <!-- DADOS DO VEÍCULO -->
-                            <div id="dados_estendidos_veiculo" class="hidden bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2 mt-2">
-                                <div class="flex justify-between border-b border-slate-200 pb-1">
-                                    <span class="text-xs text-slate-500 font-bold">Marca/Modelo:</span>
-                                    <span class="text-xs text-slate-800 font-medium uppercase" id="veiculo_marca_modelo">--</span>
+                            <!-- DADOS DO VEÍCULO (EDITÁVEIS) -->
+                            <div id="dados_estendidos_veiculo" class="hidden bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3 mt-2">
+                                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1"><i class="fa-solid fa-pen-to-square mr-1"></i> Confirmar Detalhes do Veículo</p>
+                                <div class="grid grid-cols-3 gap-2 items-center">
+                                    <label class="text-xs text-slate-500 font-bold">Marca/Modelo:</label>
+                                    <input type="text" id="veiculo_marca_modelo" class="col-span-2 p-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 uppercase focus:border-brand-500 outline-none shadow-sm font-semibold" placeholder="Ex: HYUNDAI/TUCSON" required>
                                 </div>
-                                <div class="flex justify-between border-b border-slate-200 pb-1">
-                                    <span class="text-xs text-slate-500 font-bold">Cor:</span>
-                                    <span class="text-xs text-slate-800 font-medium uppercase" id="veiculo_cor">--</span>
+                                <div class="grid grid-cols-3 gap-2 items-center">
+                                    <label class="text-xs text-slate-500 font-bold">Cor:</label>
+                                    <input type="text" id="veiculo_cor" class="col-span-2 p-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 uppercase focus:border-brand-500 outline-none shadow-sm font-semibold" placeholder="Ex: PRATA" required>
                                 </div>
-                                <div class="flex justify-between border-b border-slate-200 pb-1">
-                                    <span class="text-xs text-slate-500 font-bold">Ano/Mod:</span>
-                                    <span class="text-xs text-slate-800 font-medium" id="veiculo_ano">--</span>
+                                <div class="grid grid-cols-3 gap-2 items-center">
+                                    <label class="text-xs text-slate-500 font-bold">Ano/Mod:</label>
+                                    <input type="text" id="veiculo_ano" class="col-span-2 p-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:border-brand-500 outline-none shadow-sm font-semibold" placeholder="Ex: 2013" required>
                                 </div>
-                                <div class="flex justify-between">
-                                    <span class="text-xs text-slate-500 font-bold">Situação:</span>
-                                    <span class="text-xs font-black uppercase" id="veiculo_situacao">--</span>
+                                <div class="grid grid-cols-3 gap-2 items-center">
+                                    <label class="text-xs text-slate-500 font-bold">Situação:</label>
+                                    <select id="veiculo_situacao" class="col-span-2 p-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 font-bold uppercase focus:border-brand-500 outline-none shadow-sm" required>
+                                        <option value="LEGAL">LEGAL</option>
+                                        <option value="ROUBO/FURTO">ROUBO/FURTO</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -810,6 +814,10 @@
                 sexo: document.querySelector('input[name="sexo"]:checked').value,
                 placa_veiculo: document.getElementById("placa_veiculo").value,
                 tipo_veiculo: document.querySelector('input[name="tipo_veiculo"]:checked').value,
+                veiculo_marca_modelo: document.getElementById("veiculo_marca_modelo").value,
+                veiculo_cor: document.getElementById("veiculo_cor").value,
+                veiculo_ano: document.getElementById("veiculo_ano").value,
+                veiculo_situacao: document.getElementById("veiculo_situacao").value,
                 etilometro_resultado: document.querySelector('input[name="etilometro"]:checked').value,
                 tem_infracao: document.querySelector('input[name="tem_infracao"]:checked').value,
                 infracoes: selectedInfracoes,
@@ -847,68 +855,95 @@
 
         // --- 4. CONSULTA DE CPF E PLACA (API) ---
         async function consultarAPI(tipo) {
-            let inputId, btnId, param, val;
+            const btn = document.getElementById(tipo === 'cpf' ? 'btn-busca-cpf' : 'btn-busca-placa');
+            const iconeOriginal = btn.innerHTML;
+            const inputVal = document.getElementById(tipo === 'cpf' ? 'cpf_condutor' : 'placa_veiculo').value;
             
-            if (tipo === 'cpf') {
-                inputId = 'cpf_condutor';
-                btnId = 'btn-busca-cpf';
-                val = document.getElementById(inputId).value.replace(/\D/g, "");
-                if (val.length !== 11) {
-                    alert("Insira um CPF de 11 dígitos.");
-                    return;
-                }
-                param = `cpf=${val}`;
-            } else {
-                inputId = 'placa_veiculo';
-                btnId = 'btn-busca-placa';
-                val = document.getElementById(inputId).value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-                if (val.length !== 7) {
-                    alert("Insira uma placa de 7 caracteres.");
-                    return;
-                }
-                param = `placa=${val}`;
+            const cleanVal = (tipo === 'cpf') ? inputVal.replace(/\D/g, "") : inputVal.toUpperCase().replace(/[^A-Z0-9]/g, "");
+            
+            if (tipo === 'cpf' && cleanVal.length !== 11) {
+                alert("Insira um CPF de 11 dígitos.");
+                return;
+            }
+            if (tipo === 'placa' && cleanVal.length !== 7) {
+                alert("Insira uma placa de 7 caracteres.");
+                return;
             }
 
-            const btn = document.getElementById(btnId);
-            const iconeOriginal = btn.innerHTML;
-            
+            const param = `${tipo}=${cleanVal}`;
+
             btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-brand-600"></i>';
             btn.disabled = true;
 
             try {
                 const res = await fetch(`/api/consulta?${param}`);
-                if (!res.ok) throw new Error("Registro não localizado ou erro no servidor");
+                if (!res.ok) throw new Error("Erro de rede");
 
                 const resData = await res.json();
-                if (resData.found) {
-                    const item = resData.data;
-                    if (tipo === 'cpf') {
+                
+                if (tipo === 'cpf') {
+                    const avisoCpf = document.getElementById('api-aviso-cpf');
+                    if (resData.found) {
+                        const item = resData.data;
                         document.getElementById('nome_condutor').value = item.nome;
                         const sexRadio = document.querySelector(`input[name="sexo"][value="${item.sexo}"]`);
                         if (sexRadio) sexRadio.checked = true;
-                        document.getElementById('api-aviso-cpf').classList.remove('hidden');
+                        avisoCpf.innerHTML = '<i class="fa-solid fa-circle-check"></i> Condutor encontrado.';
+                        avisoCpf.classList.remove('hidden', 'text-amber-600');
+                        avisoCpf.classList.add('text-emerald-600');
                     } else {
-                        document.getElementById('dados_estendidos_veiculo').classList.remove('hidden');
-                        document.getElementById('api-aviso-placa').classList.remove('hidden');
-                        
-                        document.getElementById('veiculo_marca_modelo').innerText = item.marca_modelo;
-                        document.getElementById('veiculo_cor').innerText = item.cor;
-                        document.getElementById('veiculo_ano').innerText = item.ano;
+                        document.getElementById('nome_condutor').value = '';
+                        const checkedSex = document.querySelector('input[name="sexo"]:checked');
+                        if (checkedSex) checkedSex.checked = false;
+                        avisoCpf.innerHTML = '<i class="fa-solid fa-circle-info"></i> Não localizado. Preencha manualmente.';
+                        avisoCpf.classList.remove('hidden', 'text-emerald-600');
+                        avisoCpf.classList.add('text-amber-600');
+                    }
+                } else {
+                    document.getElementById('dados_estendidos_veiculo').classList.remove('hidden');
+                    const avisoPlaca = document.getElementById('api-aviso-placa');
+                    
+                    if (resData.found) {
+                        const item = resData.data;
+                        document.getElementById('veiculo_marca_modelo').value = item.marca_modelo || '';
+                        document.getElementById('veiculo_cor').value = item.cor || '';
+                        document.getElementById('veiculo_ano').value = item.ano || '';
                         
                         const situacaoEl = document.getElementById('veiculo_situacao');
-                        situacaoEl.innerText = item.situacao;
+                        situacaoEl.value = item.situacao || 'LEGAL';
+                        
                         if(item.situacao === 'ROUBO/FURTO') {
-                            situacaoEl.className = 'text-xs font-black uppercase text-red-600 bg-red-100 px-2 py-0.5 rounded';
+                            situacaoEl.className = 'col-span-2 p-2 bg-red-50 border border-red-300 rounded-lg text-xs text-red-700 font-bold uppercase outline-none';
                             alert("⚠️ ALERTA: VEÍCULO CONSTA COMO ROUBO OU FURTO no cadastro!");
                         } else {
-                            situacaoEl.className = 'text-xs font-black uppercase text-green-600 bg-green-100 px-2 py-0.5 rounded';
+                            situacaoEl.className = 'col-span-2 p-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 font-bold uppercase focus:border-brand-500 outline-none shadow-sm';
                         }
+                        
+                        avisoPlaca.innerHTML = '<i class="fa-solid fa-circle-check"></i> Veículo encontrado.';
+                        avisoPlaca.classList.remove('hidden', 'text-amber-600');
+                        avisoPlaca.classList.add('text-emerald-600');
+                    } else {
+                        document.getElementById('veiculo_marca_modelo').value = '';
+                        document.getElementById('veiculo_cor').value = '';
+                        document.getElementById('veiculo_ano').value = '';
+                        document.getElementById('veiculo_situacao').value = 'LEGAL';
+                        
+                        avisoPlaca.innerHTML = '<i class="fa-solid fa-circle-info"></i> Não localizado. Preencha manualmente.';
+                        avisoPlaca.classList.remove('hidden', 'text-emerald-600');
+                        avisoPlaca.classList.add('text-amber-600');
                     }
-                    
-                    btn.innerHTML = '<i class="fa-solid fa-check text-green-500"></i>';
                 }
+                
+                btn.innerHTML = '<i class="fa-solid fa-check text-green-500"></i>';
             } catch (err) {
-                alert("Não foi possível consultar os dados automaticamente. Digite os dados manualmente.");
+                if (tipo === 'placa') {
+                    document.getElementById('dados_estendidos_veiculo').classList.remove('hidden');
+                    document.getElementById('veiculo_marca_modelo').value = '';
+                    document.getElementById('veiculo_cor').value = '';
+                    document.getElementById('veiculo_ano').value = '';
+                    document.getElementById('veiculo_situacao').value = 'LEGAL';
+                }
+                alert("Não foi possível realizar a consulta automática. Digite os dados manualmente.");
                 btn.innerHTML = '<i class="fa-solid fa-exclamation-triangle text-amber-500"></i>';
             } finally {
                 btn.disabled = false;
@@ -1125,6 +1160,8 @@
                     input.classList.remove('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
                     input.classList.add('border-green-500', 'focus:border-green-500', 'focus:ring-green-500');
                     erroMsg.classList.add('hidden');
+                    // Mostra o formulário de dados estendidos para preenchimento manual
+                    document.getElementById('dados_estendidos_veiculo').classList.remove('hidden');
                 } else {
                     input.classList.add('border-red-500', 'focus:border-red-500', 'focus:ring-red-500');
                     input.classList.remove('border-green-500', 'focus:border-green-500', 'focus:ring-green-500');
