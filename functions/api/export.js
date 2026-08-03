@@ -64,7 +64,7 @@ export async function onRequestGet(context) {
         row.tem_infracao === 1 ? "SIM" : "NÃO",
         row.destino,
         row.crr === "sim" ? "SIM" : "NÃO",
-        `"${(row.observacoes || "").replace(/"/g, '""')}"`,
+        `"${(row.observacoes || "").replace(/\[FOTO_CNH_BASE64:[^\]]+\]/g, "[FOTO CNH SALVA]").replace(/"/g, '""')}"`,
         `"${(row.infracoes || "").replace(/"/g, '""')}"`
       ];
       csvContent += line.join(";") + "\n";
